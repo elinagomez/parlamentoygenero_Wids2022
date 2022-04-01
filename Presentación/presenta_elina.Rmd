@@ -1,0 +1,163 @@
+---
+title: "El discurso de género en el Parlamento uruguayo"
+subtitle: "________"
+author: "    "
+institute: "_WiDS Montevideo 2022_"
+date: "28 de octubre de 2022"
+output:
+  xaringan::moon_reader:
+    css: ["estilo.css"]
+    self_contained: true
+    lib_dir: libs
+    nature:
+      ratio: '16:9'
+---
+class: middle, left
+
+<center>
+
+![](avatar.jpg) 
+
+**Soc. Elina Gómez**
+
+_Docente Unidad de Métodos y Acceso a Datos (UMAD) - FCS/UdelaR_
+
+elinagomezbonaglia@gmail.com
+
+www.elinagomez.com
+
+
+
+---
+class: middle, left
+
+# Instalaciones previas
+
+1. R y RStudio
+
+- Instalar el R básico desde el repositorio CRAN: [Última versión R 4.1.3](https://cran.r-project.org/)
+- [Instalar RStudio](https://www.rstudio.com/products/rstudio/download/)
+
+(para ambos casos existen indicaciones para el sistema operativo específico)
+
+---
+class: middle, left
+
+# Instalaciones previas
+
+2. Librerías 
+
+```{r eval=FALSE, message=FALSE, warning=FALSE}
+#Instalo librerías
+#De CRAN: 
+#install.packages(c("speech","quanteda","dplyr","tidymodels","ggplot2",
+#"lubridate","plotly"))
+
+#De GitHub: 
+#remotes::install_github("Nicolas-Schmidt/puy")
+
+#cargo librerías
+
+library(speech)
+library(quanteda)
+library(dplyr)
+library(tidymodels)
+library(ggplot2)
+library(lubridate)
+library(plotly)
+
+```
+
+---
+class: middle, left
+
+# Objetivo general
+
+El **objetivo general** del trabajo es lograr un buen método de clasificación de texto que permita distinguir entre las intervenciones parlamentarias en la Cámara de representantes (unidad mínima de análisis) que planteen y discutan la temática de género para luego analizar mediante variables anexas, qué representantes, partidos, sectores son los que instalan la discusión en dicha materia. 
+
+
+---
+class: middle, left
+
+# Pasos a seguir
+
+1. **Obtención de la información**
+2. **Limpieza del texto y matriz de términos**
+3. **Clasificación: machine lerning y diccionario**
+4. **Análisis de los datos**
+
+
+---
+class: middle, left
+
+# Obtención de la información
+
+Para la obtención de información, usaremos el paquete [speech](https://cran.r-project.org/web/packages/speech/index.html)[^1] el cual permite descargar las sesiones parlamentarias de forma fácil y ordenada, agregando a los discursos algunas variables anexas como la legislatura, el nombre, la fecha de la sesión, entre otras. 
+
+Otra forma: [speech App](https://bancodedatos-fcs.shinyapps.io/shiny_speech/)
+
+---
+class: middle, left
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+#Para obtener las url de las sesiones parlamentarias por rango temporal y cámara
+# S Camara de Senadores
+# D Camara de Representantes 
+# A Asamblea General 
+# C Comisión Permanente
+
+urls = speech::speech_url(chamber  = "D",
+            from        = "15-02-2015",
+            to          = "15-06-2015")
+
+intervenciones = speech::speech_build(urls)
+
+```
+
+
+
+Para agregar la etiqueta partidaria usamos el paquete [puy](https://github.com/Nicolas-Schmidt/puy) que cuenta con una base histórica de político/as uruguayos/as. 
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+# uso la función add_party
+
+intervenciones = puy::add_party(intervenciones)
+
+```
+
+
+
+---
+class: middle, left
+
+Otra forma accesible sería descargar la base de forma manual con la aplicación: [speech App](https://bancodedatos-fcs.shinyapps.io/shiny_speech/)
+
+
+---
+class: middle, left
+
+Para este taller vamos a utilizar la base de sesiones ya descargada correspondiente a la la legislatura pasada: __XLVIII (2015-2020)__, y a la cámara de Diputados/as, con etiqueta partidaria incorporada.  
+
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+
+
+```
+
+
+
+
+
+
+
+
+
+---
+class: chapter-slide
+
+# Gracias!
+
+
