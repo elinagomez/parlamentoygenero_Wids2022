@@ -2,7 +2,7 @@
 title: "El discurso de género en el Parlamento uruguayo"
 subtitle: "________"
 author: "    "
-institute: "_WiDS Montevideo 2022_"
+institute: "_WiDS Montevideo_"
 date: "28 de octubre de 2022"
 output:
   xaringan::moon_reader:
@@ -22,7 +22,7 @@ class: middle, left
 
 _Docente Unidad de Métodos y Acceso a Datos (UMAD) - FCS/UdelaR_
 
-elinagomezbonaglia@gmail.com
+elina.gomez@cienciassociales.edu.uy
 
 www.elinagomez.com
 
@@ -48,23 +48,23 @@ class: middle, left
 2. Librerías 
 
 ```{r eval=FALSE, message=FALSE, warning=FALSE}
+
 #Instalo librerías
 #De CRAN: 
-#install.packages(c("speech","quanteda","dplyr","tidymodels","ggplot2",
-#"lubridate","plotly"))
+#install.packages(c("speech","quanteda","dplyr","tidymodels","vip",
+#"quanteda.textplots","RColorBrewer"))
 
 #De GitHub: 
 #remotes::install_github("Nicolas-Schmidt/puy")
 
-#cargo librerías
 
+#Cargo librerías
 library(speech)
+library(puy)
 library(quanteda)
 library(dplyr)
 library(tidymodels)
-library(ggplot2)
-library(lubridate)
-library(plotly)
+library(vip)
 
 ```
 
@@ -87,14 +87,19 @@ class: middle, left
 4. **Análisis de los datos**
 
 
+
+---
+class: chapter-slide
+
+# 1. Obtención de la información
+
+
 ---
 class: middle, left
 
-# Obtención de la información
 
-Para la obtención de información, usaremos el paquete [speech](https://cran.r-project.org/web/packages/speech/index.html)[^1] el cual permite descargar las sesiones parlamentarias de forma fácil y ordenada, agregando a los discursos algunas variables anexas como la legislatura, el nombre, la fecha de la sesión, entre otras. 
+Para la obtención de información, usaremos el paquete [speech](https://cran.r-project.org/web/packages/speech/index.html) el cual permite descargar las sesiones parlamentarias de forma fácil y ordenada, agregando a los discursos algunas variables anexas como la legislatura, el nombre, la fecha de la sesión, entre otras. 
 
-Otra forma: [speech App](https://bancodedatos-fcs.shinyapps.io/shiny_speech/)
 
 ---
 class: middle, left
@@ -138,20 +143,334 @@ Otra forma accesible sería descargar la base de forma manual con la aplicación
 ---
 class: middle, left
 
-Para este taller vamos a utilizar la base de sesiones ya descargada correspondiente a la la legislatura pasada: __XLVIII (2015-2020)__, y a la cámara de Diputados/as, con etiqueta partidaria incorporada.  
+Para este taller vamos a utilizar la base de sesiones ya descargada correspondiente a la la legislatura pasada: __XLVIII (2015-2020)__, y a la cámara de Diputados/as, con etiqueta partidaria incorporada. Para entrenar el modelo, usaremos una base con intervenciones de la Comisión de Género del parlamento y otras Comisiones temáticas.  
 
 
 ```{r eval=F, message=FALSE, warning=FALSE}
 
+load("Datos/intervenciones_2015_2020.RData")
+load("Datos/com_genero.RData")
 
+```
+
+
+---
+class: chapter-slide
+
+# 2. Limpieza del texto y matriz de términos de la base de entrenamiento
+
+
+---
+class: middle, left
+
+
+En primer lugar, quito las sentencias con menos de 13 palabras:
+
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+speech <- quanteda::corpus(com_genero,text_field = "speech")%>%
+  quanteda::corpus_trim(what = "sentences",min_ntoken = 13) 
+com_genero=cbind(docvars(speech),speech)
+
+```
+
+
+---
+class: middle, left
+
+Luego, armo la matriz de términos, haciendo limpieza de stopwords, puntuación, números y _podo_ la matriz. 
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+dfm_com_genero<- quanteda::dfm(quanteda::tokens(com_genero$speech,
+                                    remove_punct = TRUE,
+                                    remove_numbers = TRUE),
+                                    tolower=TRUE,
+                                    verbose = FALSE) %>%
+  quanteda::dfm_remove(pattern = c(quanteda::stopwords("spanish"), 
+                                   tolower(com_genero$legislator),
+                                   "señor","señora","presidente","presidenta"), 
+                       min_nchar = 3)%>%
+        quanteda::dfm_trim(min_termfreq = 60)
+
+```
+
+
+---
+class: middle, left
+
+Hago una nube de palabras para evaluar la segmentación. 
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+quanteda.textplots::textplot_wordcloud(quanteda::dfm_group(dfm_com_genero,groups = com_genero$genero), 
+                                       min.count = 30, 
+                                       max_words = 300,
+                                       random.order = FALSE ,
+                                       rot.per = .25,
+                                       colors = RColorBrewer::brewer.pal(8,"Dark2"),
+                                       comparison = TRUE)
+
+```
+
+---
+class: chapter-slide
+
+# 3. Clasificación: aprendizaje automático y diccionario
+
+
+---
+class: middle, left
+
+
+Armo un data frame a partir de la matriz de términos y le agrego la variable  genero con: Si genero / No genero
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+dfm_com_genero_df <- dfm_com_genero %>%
+  convert(to = "data.frame") %>%
+  mutate(genero=docvars(dfm_com_genero, "genero"))
+
+```
+
+---
+class: middle, left
+
+Divido la base de entrenamiento en dos y entreno el modelo a la base _train_.
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+set.seed(123)
+genero_split <- initial_split(dfm_com_genero_df, strata = genero)
+genero_train <- training(genero_split)
+genero_test <- testing(genero_split)
+
+genero_rf <-  rand_forest(trees = 350, mode = "classification") %>%
+  set_engine("ranger",importance = "impurity") %>%
+  fit(genero ~ ., data = genero_train[, !(colnames(genero_train) %in% c("doc_id"))])
 
 ```
 
 
 
+---
+class: middle, left
+
+Lo aplico a la sub base train en la cual entrené el modelo y evalúo métricas. 
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+genero_train = genero_rf %>%
+  predict(genero_train) %>%
+  bind_cols(genero_train)
+
+library(vip)
+
+##ploteo importantes
+genero_rf%>%
+  vip(num_features = 20)
 
 
+table(genero_train$genero,genero_train$.pred_class)
+metrics(genero_train,truth = genero, estimate = .pred_class)
 
+```
+
+
+---
+class: middle, left
+
+Luego lo aplico en la base de testeo. 
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+genero_test = genero_rf %>%
+  predict(genero_test) %>%
+  bind_cols(genero_test)
+
+table(genero_test$genero,genero_test$.pred_class)
+metrics(genero_test,truth = genero, estimate = .pred_class)
+
+
+```
+
+---
+class: middle, left
+
+Uso el modelo para predecir en la base grande, creo una matriz de términos en la base grande.
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+speech <- quanteda::corpus(intervenciones_2015_2020,text_field = "speech")%>%
+  quanteda::corpus_trim(what = "sentences",min_ntoken = 13) 
+diputados=cbind(docvars(speech),speech)
+
+dfm_diputados<- quanteda::dfm(quanteda::tokens(diputados$speech,
+                              remove_punct = TRUE,
+                              remove_numbers = TRUE),
+                               tolower=TRUE,
+                               verbose = FALSE) %>%
+  quanteda::dfm_remove(pattern = c(quanteda::stopwords("spanish"), 
+                                   tolower(com_genero$legislator),
+                                   "señor","señora","presidente","presidenta"), 
+                       min_nchar = 3)%>%
+  quanteda::dfm_trim(min_termfreq = 20) ## no soy tan restrictiva
+
+```
+
+
+---
+class: middle, left
+
+Me quedo con las variables (palabras) comunes y aplico el modelo
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+dfm_diputados_df <- dfm_diputados %>%
+  convert(to = "data.frame")
+
+dfm_diputados_df[,setdiff(colnames(genero_train),colnames(dfm_diputados_df))]=0
+
+dfm_diputados_df <- dfm_diputados_df %>%
+  select(colnames(genero_train))%>%
+ select(-.pred_class, -genero)
+
+#Aplico el modelo, le agrego resto de variables y filtro por aquellas que clasifica como "Si genero"
+
+dfm_diputados_df = genero_rf %>%
+  predict(dfm_diputados_df) %>%
+  bind_cols(dfm_diputados_df) %>%
+  select(.pred_class)%>%
+  bind_cols(diputados)%>%
+  filter(.pred_class=="Si genero")
+
+```
+
+---
+class: middle, left
+
+Vuelvo a realizar una matriz de términos, con las intervenciones pre-clasificadas
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+dfm_sigenero<- quanteda::dfm(quanteda::tokens(dfm_diputados_df$speech,
+                             remove_punct = TRUE,
+                             remove_numbers = TRUE),
+                              tolower=TRUE,
+                              verbose = FALSE) %>%
+  quanteda::dfm_remove(pattern = c(quanteda::stopwords("spanish"), 
+                                   tolower(dfm_diputados_df$legislator),
+                                   "señor","señora","presidente","presidenta"), 
+                       min_nchar = 3)
+
+```
+
+---
+class: middle, left
+
+Creo diccionario de "género" a partir de las 50 palabras más mencionadas en la matriz de términos de Comisión de género 
+
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+dicgenero <- dfm_com_genero %>%
+quanteda::topfeatures(50,groups = genero)
+dicgenero <- rownames(as.data.frame(dicgenero[[2]]))
+dicgenero <-dictionary(list(genero=dicgenero))
+
+```
+
+---
+class: middle, left
+
+Aplico el diccionario y calculo un ratio que es la cantidad de palabras en el diccionario entre la cantidad de palabras totales. Me quedo con las intervenciones que tienen más de 5% de palabras vinculadas al tema.  
+
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+resultado_dic <- data.frame(dfm_lookup(dfm_sigenero,dictionary=dicgenero))
+
+ df_sigenero = dfm_diputados_df %>%
+  bind_cols(resultado_dic) %>%
+  mutate(ratio=genero/words)%>%
+   filter(ratio>=0.05)
+
+```
+
+---
+class: chapter-slide
+
+# 4. Análisis de los datos 
+
+---
+class: middle, left
+
+
+Por sexo:
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+ #Grafico por sexo 
+ 
+   genero=df_sigenero %>%
+     mutate(sexo=ifelse(sex==1,"Varón","Mujer")) %>%
+     group_by(sexo) %>%
+     summarise(ratio= n()/length(unique(legislator2)))%>%
+     ggplot(aes(x = reorder(sexo, -ratio) , y = ratio,group = 1)) + 
+     geom_bar(size=1, stat="identity",fill = c("#e76363","#f09e9e"),width = 0.6) +
+     scale_y_continuous(limits = c(0, 12))+ 
+     theme(axis.text.x = element_text(size=10), 
+           axis.text.y = element_text(size=10),
+           axis.title.x=element_blank(),axis.title.y=element_blank())
+
+```
+
+
+---
+class: middle, left
+
+Por partido:
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+  #Grafico por partido 
+   
+   partido=df_sigenero %>%
+     group_by(party_acron) %>%
+     drop_na()%>%
+     summarise(conteo=n())%>%
+     ggplot(aes(x = reorder(party_acron, -conteo) , y = conteo,group = 1)) + 
+     geom_bar(size=1, stat="identity",fill = c("#954342","#954342","#4a2524","#e76363","#bd5352","#6e3432"),width = 0.6) +
+     #scale_y_continuous(limits = c(0, 12))+ 
+     theme(axis.text.x = element_text(size=10), 
+           axis.text.y = element_text(size=10),
+           axis.title.x=element_blank(),axis.title.y=element_blank())
+
+```
+
+---
+class: middle, left
+
+Por legislador/a:
+
+```{r eval=F, message=FALSE, warning=FALSE}
+
+   #Grafico por legislador/a 
+
+  legis=df_sigenero %>%
+     count(legislator2)%>%
+     drop_na()%>%
+     top_n(n=10) %>%
+     arrange(n)%>%
+     ggplot(aes(x = reorder(legislator2, n) , y = n,group = 1)) + 
+     geom_bar(size=1, stat="identity",fill = c("#954342"),width = 0.6) +
+     scale_fill_gradient(low = "white", high = "red")+
+     coord_flip()+
+     theme(axis.text.x = element_text(size=10), 
+           axis.text.y = element_text(size=10),
+           axis.title.x=element_blank(),axis.title.y=element_blank())
+```
 
 
 
@@ -159,5 +478,6 @@ Para este taller vamos a utilizar la base de sesiones ya descargada correspondie
 class: chapter-slide
 
 # Gracias!
+
 
 

@@ -4,7 +4,8 @@
 
 #Instalo librerías
 #De CRAN: 
-#install.packages(c("speech","quanteda","dplyr","tidymodels"))
+#install.packages(c("speech","quanteda","dplyr","tidymodels","vip",
+#"quanteda.textplots","RColorBrewer"))
 
 #De GitHub: 
 #remotes::install_github("Nicolas-Schmidt/puy")
@@ -16,6 +17,7 @@ library(puy)
 library(quanteda)
 library(dplyr)
 library(tidymodels)
+library(vip)
 
 
 
@@ -101,8 +103,6 @@ dfm_com_genero_df <- dfm_com_genero %>%
   mutate(genero=docvars(dfm_com_genero, "genero"))
 
 
-library(tidymodels)
-
 set.seed(123)
 genero_split <- initial_split(dfm_com_genero_df, strata = genero)
 genero_train <- training(genero_split)
@@ -143,7 +143,7 @@ genero_test = genero_rf %>%
 ##Uso el modelo para predecir en la base grande, me quedo con las variables comunes
 
 ## En primer lugar, creo la matriz de términos de la base de intervenciones,
-# de la misma forma quelo hice con la comisión de género.  
+# de la misma forma que lo hice con la comisión de género.  
 
 speech <- quanteda::corpus(intervenciones_2015_2020,text_field = "speech")%>%
   quanteda::corpus_trim(what = "sentences",min_ntoken = 13) 
@@ -251,7 +251,7 @@ resultado_dic <- data.frame(dfm_lookup(dfm_sigenero,dictionary=dicgenero))
            axis.title.x=element_blank(),axis.title.y=element_blank())
    
 
-   #Grafico por partido 
+   #Grafico por legislador/a 
    
    
    legis=df_sigenero %>%
