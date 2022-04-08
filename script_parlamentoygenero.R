@@ -27,8 +27,8 @@ library(vip)
 # S Camara de Senadores; D Camara de Representantes; A Asamblea General; C Comisión Permanente
 
 urls = speech::speech_url(chamber  = "D",
-            from        = "01-01-2015",
-            to          = "01-03-2020")
+            from        = "01-04-2015",
+            to          = "01-05-2015")
 
 intervenciones = speech::speech_build(urls)
 
@@ -111,6 +111,7 @@ genero_test <- testing(genero_split)
 genero_rf <-  rand_forest(trees = 350, mode = "classification") %>%
   set_engine("ranger",importance = "impurity") %>%
   fit(genero ~ ., data = genero_train[, !(colnames(genero_train) %in% c("doc_id"))])
+
 
 #save(afam_rf,file="Bases/afam_rf.RData")
 
