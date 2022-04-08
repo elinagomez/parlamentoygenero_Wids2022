@@ -66,6 +66,7 @@ load("Datos/com_genero.RData")
 ##En primer lugar, quito las sentencias con menos de 13 palabras
 speech <- quanteda::corpus(com_genero,text_field = "speech")%>%
   quanteda::corpus_trim(what = "sentences",min_ntoken = 13) 
+
 com_genero=cbind(docvars(speech),speech)
 
 ##Armo la matriz de términos, haciendo limpieza
@@ -140,6 +141,8 @@ genero_test = genero_rf %>%
   predict(genero_test) %>%
   bind_cols(genero_test)
 
+metrics(genero_test,truth = genero, estimate = .pred_class)
+
 
 ##Uso el modelo para predecir en la base grande, me quedo con las variables comunes
 
@@ -152,7 +155,7 @@ diputados=cbind(docvars(speech),speech)
 
 ##Armo la matriz de términos, haciendo limpieza
 
-dfm_diputados<- quanteda::dfm(quanteda::tokens(diputados$speech,
+dfm_diputados<- quanteda::dfm(quanteda::tokens(intervenciones_2015_2020$speech,
                               remove_punct = TRUE,
                               remove_numbers = TRUE),
                                tolower=TRUE,
@@ -178,7 +181,7 @@ dfm_diputados_df = genero_rf %>%
   predict(dfm_diputados_df) %>%
   bind_cols(dfm_diputados_df) %>%
   select(.pred_class)%>%
-  bind_cols(diputados)%>%
+  bind_cols(intervenciones_2015_2020)%>%
   filter(.pred_class=="Si genero")
   
 
@@ -216,8 +219,6 @@ resultado_dic <- data.frame(dfm_lookup(dfm_sigenero,dictionary=dicgenero))
   mutate(ratio=genero/words)%>%
    filter(ratio>=0.05)
 
-
- 
  
  
 #4. Análisis de los datos 
@@ -231,7 +232,7 @@ resultado_dic <- data.frame(dfm_lookup(dfm_sigenero,dictionary=dicgenero))
      summarise(ratio= n()/length(unique(legislator2)))%>%
      ggplot(aes(x = reorder(sexo, -ratio) , y = ratio,group = 1)) + 
      geom_bar(size=1, stat="identity",fill = c("#e76363","#f09e9e"),width = 0.6) +
-     scale_y_continuous(limits = c(0, 12))+ 
+     scale_y_continuous(limits = c(0, 13))+ 
      theme(axis.text.x = element_text(size=10), 
            axis.text.y = element_text(size=10),
            axis.title.x=element_blank(),axis.title.y=element_blank())
