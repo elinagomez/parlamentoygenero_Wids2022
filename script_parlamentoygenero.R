@@ -18,6 +18,7 @@ library(quanteda)
 library(dplyr)
 library(tidymodels)
 library(vip)
+library(ranger)
 
 
 
@@ -114,9 +115,6 @@ genero_rf <-  rand_forest(trees = 350, mode = "classification") %>%
   fit(genero ~ ., data = genero_train[, !(colnames(genero_train) %in% c("doc_id"))])
 
 
-#save(afam_rf,file="Bases/afam_rf.RData")
-
-
 #ENTRENO
 
 genero_train = genero_rf %>%
@@ -155,7 +153,7 @@ diputados=cbind(docvars(speech),speech)
 
 ##Armo la matriz de términos, haciendo limpieza
 
-dfm_diputados<- quanteda::dfm(quanteda::tokens(intervenciones_2015_2020$speech,
+dfm_diputados<- quanteda::dfm(quanteda::tokens(diputados$speech,
                               remove_punct = TRUE,
                               remove_numbers = TRUE),
                                tolower=TRUE,
@@ -181,7 +179,7 @@ dfm_diputados_df = genero_rf %>%
   predict(dfm_diputados_df) %>%
   bind_cols(dfm_diputados_df) %>%
   select(.pred_class)%>%
-  bind_cols(intervenciones_2015_2020)%>%
+  bind_cols(diputados)%>%
   filter(.pred_class=="Si genero")
   
 
@@ -231,7 +229,7 @@ resultado_dic <- data.frame(dfm_lookup(dfm_sigenero,dictionary=dicgenero))
      group_by(sexo) %>%
      summarise(ratio= n()/length(unique(legislator2)))%>%
      ggplot(aes(x = reorder(sexo, -ratio) , y = ratio,group = 1)) + 
-     geom_bar(size=1, stat="identity",fill = c("#e76363","#f09e9e"),width = 0.6) +
+     geom_bar(size=1, stat="identity",fill = c("#005d25","#99d7b2"),width = 0.6) +
      scale_y_continuous(limits = c(0, 13))+ 
      theme(axis.text.x = element_text(size=10), 
            axis.text.y = element_text(size=10),
@@ -246,7 +244,7 @@ resultado_dic <- data.frame(dfm_lookup(dfm_sigenero,dictionary=dicgenero))
      drop_na()%>%
      summarise(conteo=n())%>%
      ggplot(aes(x = reorder(party_acron, -conteo) , y = conteo,group = 1)) + 
-     geom_bar(size=1, stat="identity",fill = c("#954342","#954342","#4a2524","#e76363","#bd5352","#6e3432"),width = 0.6) +
+     geom_bar(size=1, stat="identity",fill = c("#002e13","#005d25","#009b3e","#33af65","#80cd9f","#ccebd8"),width = 0.6) +
      #scale_y_continuous(limits = c(0, 12))+ 
      theme(axis.text.x = element_text(size=10), 
            axis.text.y = element_text(size=10),
@@ -259,13 +257,13 @@ resultado_dic <- data.frame(dfm_lookup(dfm_sigenero,dictionary=dicgenero))
    legis=df_sigenero %>%
      count(legislator2)%>%
      drop_na()%>%
-     top_n(n=10) %>%
+     top_n(n=15) %>%
      arrange(n)%>%
      ggplot(aes(x = reorder(legislator2, n) , y = n,group = 1)) + 
-     geom_bar(size=1, stat="identity",fill = c("#954342"),width = 0.6) +
+     geom_bar(size=1, stat="identity",fill = c("#33af65"),width = 0.6) +
      scale_fill_gradient(low = "white", high = "red")+
      coord_flip()+
      theme(axis.text.x = element_text(size=10), 
-           axis.text.y = element_text(size=10),
+           axis.text.y = element_text(size=6.5),
            axis.title.x=element_blank(),axis.title.y=element_blank())
    
