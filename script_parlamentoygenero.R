@@ -1,6 +1,10 @@
 
 
 ## TALLER WiDS 2022 - El discurso de género en el Parlamento uruguayo ##
+## Elina Gómez ## elina.gomez@cienciassociales.edu.uy ##
+## Más: elinagomez.com ##
+
+
 
 #Instalo librerías
 #De CRAN: 
@@ -55,7 +59,6 @@ load("Datos/intervenciones_2015_2020.RData")
 # Cargo la base de la Comisión de Género que me va a servir para construir el modelo de aprendizaje. 
 
 load("Datos/com_genero.RData")
-
 
 
 #2. Limpieza del texto y matriz de términos
